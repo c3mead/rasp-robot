@@ -39,8 +39,67 @@ Two DC-brushed motors were selected to give the motors movement. Motors were cho
 
 I will go over the schematics in a later section; however this is an image of what the final assembly looks like once the wiring is complete.
 
-![final](https://i.imgur.com/4ajpLgW.png)
+<p align="center">
+  <img src="https://i.imgur.com/4ajpLgW.png">
+</p>
 
 ## Testing
-TBA...
 
+### Motor Controller
+Power to the DC motors is to be controlled by a [L293D motor controller](https://tinyurl.com/y3dsmn47/). This chip contains to H-Bridges which allows one to control two motors though a single chip. An H-bridge is an electrical circuit that allows a voltage to be applied across a load. 
+
+![h_bridge](https://i.imgur.com/GrVV4lF.png) ![l293d](https://i.imgur.com/DjCpbVX.jpg)
+
+When all switches are open, no voltage is applied and the motor doesn't move. When only s1 and s4 are closed, voltage flows in the other direction. The design of the L293D means that s1 and s2 cannot be closed at the same time. Same thing with s3 and s4. The L293D takes this further and requires only two inputs for one motor. The behavior for the motor depends on which inputs are high and which inputs are low. See table below
+
+| Input 1  | Input 2 | Motor Behavior |
+| :---: | :---: | :---: |
+| Low | Low  | Motor off |
+| Low | High | Motor rotates in one direction |
+| High | Low | Motor moves in other direction |
+| High | High | Motor off |
+
+### Encoder
+A two-channel Hall effect encoder was employed to each DC motor. To calculate the counts per revolution, the gear ratio must be multiplied by 25
+
+#### Encoder Wiring
+
+| Color | Function |
+| :--- | :--- |
+| red | motor power (v+) |
+| black | motor power (v-) |
+| green | encoder GND |
+| blue | encoder Vcc |
+| yellow | enc output A |
+| white | enc output B |
+
+Encoder test functions can be downloaded in the movement folder.
+
+### Inertial Measurement Unit
+#### AltINU-10 v5
+The Pololu AltINU-10 v5 combines the following:
+  - LSM6DS33: a 3-axis gyroscope and 3-axis accelerometer
+  - LIS3MDL: a 3-axis magnetometer
+  - LDS25H: a digital barometer and altimeter
+  
+Each sensor also has a choice of output data rates. The three ICs can be accessed through a shared I2C interface.
+
+##### Gyroscope
+Gyros are devices that measure or maintain rotational motion which is a measure of angular velocity - a measurement of speed of rotation. A gyroscope can be used to measure rotation from a balanced position and send corrections to a motor. When things rotate around on an axis, they have angular velocity whhich can be measured as RPMs. When the gyro-sensor is rotated, a small resonating mass is shifted as the angular velocity changes. This movement is converted into very low-current electrical signals. 
+
+Range: maximum angular velocity that a gyro can read
+sensitivity: measured in mV/deg/s. Determines how mich the voltage changes for a given angular velocity. For example, is sensitivity is set to 30 mV/deg/s, and you see a 300 mV change, you've rotated at 10 deg/s.
+
+##### Accelerometer
+This is a device that measures acceleration - the rate of change of velocity. The units are m/s^2 or g. For example, an accelerometer resting on a table would measure 1g straight upwards due to gravity. Similar to gyroscopes, there is a range and sensitivity level for the accelerometer. Accelerometer outout is shown as mg/LSB and it outputs 16-but values for readings. The raw values from the accelerometer are multiplied by the sensitivity level to get the G value. As an exercise, lets use FD+/- 3g as the sample sensitivity level with a range from -2 to 2. The output is 16 bits; 16 bits = 65,535. This means that there are 65,535 different readings between -2g and 2g (range of 4g). 4,000-mg / 65,535 = 0.061. Each time the LSB changes by one, the value changes by 0.061.
+
+The accelerometer and gyroscope readings are commonly combined to retrieve accurate navigation reasings (this is because the gyroscope and accelerometer readings on their own are not very accurate). A filter is employed that will give the gyroscope greater influence for short periods of time, and the accelerometer influence for longer periods of time. Gyros are measured over time which causes the calculation to drift. A complementary Filter was used in this example:
+
+Current Angle = 0.98 * (current_angle + gyro_rotation) + (0.02 * accel_angle)
+
+NOTE: Accelerometers cannot measure Yaw!! Yaw is when the dewvices in on a flat surface and is rotated clockwise or counter-clockwise. The z-axis readings will not change. A magnetometer can help, however the dc motors on the robot make calibration difficult.
+
+Programs to calculate and read accelerometer and gyroscope readings can be downloaded in the movement folder.
+
+##### Magnetometer
+Can measure heading using the earth's magnetic fields as a guide. The most accurate over time, but bad at tracking sharp movements. Not used in this project. 
